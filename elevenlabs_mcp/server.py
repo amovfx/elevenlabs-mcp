@@ -131,7 +131,11 @@ def text_to_speech(
     output_path = make_output_path(output_directory, base_path)
     output_file_name = make_output_file("tts", text, output_path, "mp3")
 
-    model_id = "eleven_flash_v2_5" if language in ["hu", "no", "vi"] else "eleven_multilingual_v2"
+    model_id = (
+        "eleven_flash_v2_5"
+        if language in ["hu", "no", "vi"]
+        else "eleven_multilingual_v2"
+    )
 
     audio_data = client.text_to_speech.convert(
         text=text,
@@ -251,7 +255,7 @@ def text_to_sound_effects(
     text: str,
     duration_seconds: float = 2.0,
     output_directory: str | None = None,
-    output_format: str = "mp3_44100_128"
+    output_format: str = "mp3_44100_128",
 ) -> list[TextContent]:
     if duration_seconds < 0.5 or duration_seconds > 5:
         make_error("Duration must be between 0.5 and 5 seconds")
@@ -312,7 +316,7 @@ def list_models() -> list[McpModel]:
             languages=[
                 McpLanguage(language_id=lang.language_id, name=lang.name)
                 for lang in model.languages
-            ]
+            ],
         )
         for model in response
     ]
@@ -341,9 +345,7 @@ def voice_clone(
 ) -> TextContent:
     input_files = [str(handle_input_file(file).absolute()) for file in files]
     voice = client.voices.ivc.create(
-        name=name,
-        description=description,
-        files=input_files
+        name=name, description=description, files=input_files
     )
 
     return TextContent(
@@ -466,7 +468,7 @@ def create_agent(
 
     return TextContent(
         type="text",
-        text=f"""Agent created successfully: Name: {name}, Agent ID: {response.agent_id}, URL: https://elevenlabs.io/app/talk-to?=agent_01{response.agent_id}", System Prompt: {system_prompt}, Voice ID: {voice_id or "Default"}, Language: {language}, LLM: {llm}, You can use this agent ID for future interactions with the agent. ,
+        text=f"""Agent created successfully: Name: {name}, Agent ID: {response.agent_id}, URL: https://elevenlabs.io/app/talk-to?=agent_01{response.agent_id}, System Prompt: {system_prompt}, Voice ID: {voice_id or "Default"}, Language: {language}, LLM: {llm}, You can use this agent ID for future interactions with the agent. """,
     )
 
 
@@ -511,7 +513,9 @@ def add_knowledge_base_to_agent(
             text_io.content_type = "text/plain"
             file = text_io
         elif input_file_path is not None:
-            path = handle_input_file(file_path=input_file_path, audio_content_check=False)
+            path = handle_input_file(
+                file_path=input_file_path, audio_content_check=False
+            )
             file = open(path, "rb")
 
         response = client.conversational_ai.knowledge_base.documents.create_from_file(
