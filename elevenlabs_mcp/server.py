@@ -466,7 +466,7 @@ def create_agent(
 
     return TextContent(
         type="text",
-        text=f"""Agent created successfully: Name: {name}, Agent ID: {response.agent_id}, System Prompt: {system_prompt}, Voice ID: {voice_id or "Default"}, Language: {language}, LLM: {llm}, You can use this agent ID for future interactions with the agent.""",
+        text=f"""Agent created successfully: Name: {name}, Agent ID: {response.agent_id}, URL: https://elevenlabs.io/app/talk-to?=agent_01{response.agent_id}", System Prompt: {system_prompt}, Voice ID: {voice_id or "Default"}, Language: {language}, LLM: {llm}, You can use this agent ID for future interactions with the agent. ,
     )
 
 
