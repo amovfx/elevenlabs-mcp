@@ -56,7 +56,7 @@ uv pip install -e ".[dev]"
 ```python
 @mcp.tool(
     description="""...
-      COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.
+    ï¿½ COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.
     """
 )
 ```
@@ -67,8 +67,8 @@ uv pip install -e ".[dev]"
 - Input files can be absolute or relative paths
 
 **Error Handling**: Custom `ElevenLabsMcpError` exception with helpful messages:
-- File not found ’ Suggests similar files if available
-- Permission errors ’ Clear guidance on file access issues
+- File not found ï¿½ Suggests similar files if available
+- Permission errors ï¿½ Clear guidance on file access issues
 
 ### Environment Configuration
 
@@ -108,3 +108,7 @@ Required environment variables:
 - Agent configs are immutable (Pydantic frozen models)
 - Create new configs rather than modifying existing ones
 - Use `create_conversation_config()` for proper structure
+
+## Development Notes
+
+- When launching python you need to run uv run python

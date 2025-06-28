@@ -668,6 +668,45 @@ def get_agent_config(agent_id: str) -> TextContent:
     )
 
 
+@mcp.tool(
+    description="""Delete a conversational AI agent permanently.
+
+    ⚠️ COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.
+    ⚠️ WARNING: This operation cannot be undone. The agent and all its associated data will be permanently deleted.
+
+    Args:
+        agent_id: The ID of the agent to delete
+
+    Returns:
+        TextContent confirming successful deletion
+    """
+)
+def delete_agent(agent_id: str) -> TextContent:
+    """Delete a conversational AI agent permanently.
+    
+    Args:
+        agent_id: The ID of the agent to delete
+    
+    Returns:
+        TextContent with deletion confirmation
+    """
+    try:
+        # First, verify the agent exists by getting its details
+        agent = client.conversational_ai.agents.get(agent_id=agent_id)
+        agent_name = agent.name
+        
+        # Delete the agent
+        client.conversational_ai.agents.delete(agent_id=agent_id)
+        
+        return TextContent(
+            type="text",
+            text=f"Agent '{agent_name}' (ID: {agent_id}) has been successfully deleted."
+        )
+    
+    except Exception as e:
+        make_error(f"Failed to delete agent {agent_id}: {str(e)}")
+
+
 @mcp.tool(description="Update an existing conversational AI agent's configuration, including built-in tools")
 def update_agent_with_tools(
     agent_id: str,
@@ -1172,7 +1211,11 @@ Project Location: {project_root}
 Package Root: {package_root}
 Version: {__version__}
 Base Path (ELEVENLABS_MCP_BASE_PATH): {base_path or 'Not set (using Desktop)'}
-API Key Configured: {'Yes' if api_key else 'No'}"""
+API Key Configured: {'Yes' if api_key else 'No'}
+
+Agent Management:
+- View and manage your agents: https://elevenlabs.io/app/conversational-ai/agents
+- Individual agent settings format: https://elevenlabs.io/app/conversational-ai/agents/[AGENT_ID]"""
     
     return TextContent(type="text", text=info)
 
