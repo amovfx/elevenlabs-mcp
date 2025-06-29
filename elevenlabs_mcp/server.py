@@ -628,7 +628,7 @@ def get_agent(agent_id: str) -> TextContent:
         agent_id: The ID of the agent to retrieve
 
     Returns:
-        TextContent with detailed information about the agent
+        TextContent with detailed information about the agent including edit and chat URLs
     """
     response = client.conversational_ai.agents.get(agent_id=agent_id)
 
@@ -636,9 +636,21 @@ def get_agent(agent_id: str) -> TextContent:
     if response.conversation_config.tts:
         voice_info = f"Voice ID: {response.conversation_config.tts.voice_id}"
 
+    # Generate the URLs for editing and chatting with the agent
+    edit_url = f"https://elevenlabs.io/app/conversational-ai/agents/{agent_id}"
+    chat_url = f"https://elevenlabs.io/app/conversational-ai/agents/{agent_id}/chat"
+
     return TextContent(
         type="text",
-        text=f"Agent Details: Name: {response.name}, Agent ID: {response.agent_id}, Voice Configuration: {voice_info}, Created At: {datetime.fromtimestamp(response.metadata.created_at_unix_secs).strftime('%Y-%m-%d %H:%M:%S')}",
+        text=f"""Agent Details:
+Name: {response.name}
+Agent ID: {response.agent_id}
+Voice Configuration: {voice_info}
+Created At: {datetime.fromtimestamp(response.metadata.created_at_unix_secs).strftime('%Y-%m-%d %H:%M:%S')}
+
+URLs:
+Edit Agent: {edit_url}
+Chat with Agent: {chat_url}""",
     )
 
 
@@ -705,6 +717,180 @@ def delete_agent(agent_id: str) -> TextContent:
     
     except Exception as e:
         make_error(f"Failed to delete agent {agent_id}: {str(e)}")
+
+
+@mcp.tool(
+    description="""Update a conversational AI agent's conversation configuration.
+
+    ⚠️ COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.
+
+    Args:
+        agent_id: The ID of the agent to update
+        name: New name for the agent (optional)
+        first_message: New first message the agent will say (optional)
+        system_prompt: New system prompt for the agent (optional)
+        voice_id: New voice ID to use for the agent (optional)
+        language: New ISO 639-1 language code for the agent (optional)
+        llm: New LLM to use for the agent (optional)
+        temperature: New temperature for the agent (0-1, optional)
+        max_tokens: New maximum number of tokens to generate (optional)
+        asr_quality: New ASR quality - 'high' or 'low' (optional)
+        model_id: New ElevenLabs model ID for the agent (optional)
+        optimize_streaming_latency: New streaming latency optimization (0-4, optional)
+        stability: New stability for the agent (0-1, optional)
+        similarity_boost: New similarity boost for the agent (0-1, optional)
+        turn_timeout: New timeout for agent to respond in seconds (optional)
+        max_duration_seconds: New maximum conversation duration in seconds (optional)
+
+    Returns:
+        TextContent with update status and summary of changes made
+    """
+)
+def update_agent(
+    agent_id: str,
+    name: str | None = None,
+    first_message: str | None = None,
+    system_prompt: str | None = None,
+    voice_id: str | None = None,
+    language: str | None = None,
+    llm: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    asr_quality: str | None = None,
+    model_id: str | None = None,
+    optimize_streaming_latency: int | None = None,
+    stability: float | None = None,
+    similarity_boost: float | None = None,
+    turn_timeout: int | None = None,
+    max_duration_seconds: int | None = None,
+) -> TextContent:
+    """Update an agent's conversation configuration.
+    
+    Args:
+        agent_id: The ID of the agent to update
+        (all other parameters are optional and will only update if provided)
+    
+    Returns:
+        TextContent with update status and summary of changes
+    """
+    try:
+        # Get the current agent configuration
+        agent = client.conversational_ai.agents.get(agent_id=agent_id)
+        
+        # Extract current conversation config and convert to dict
+        current_config = agent.conversation_config
+        config_dict = current_config.model_dump() if hasattr(current_config, 'model_dump') else current_config.__dict__
+        
+        # Track what we're updating
+        updates = []
+        
+        # Update agent name if provided
+        update_data = {}
+        if name is not None:
+            update_data["name"] = name
+            updates.append(f"name: '{name}'")
+        
+        # Update conversation config parameters
+        # Extract current values with fallbacks
+        current_language = config_dict['agent']['language']
+        current_system_prompt = config_dict['agent']['prompt']['prompt']
+        current_llm = config_dict['agent']['prompt']['llm']
+        current_first_message = config_dict['agent'].get('first_message', '')
+        current_temperature = config_dict['agent']['prompt']['temperature']
+        current_max_tokens = config_dict['agent']['prompt'].get('max_tokens', -1)
+        current_asr_quality = config_dict['asr'].get('quality', 'high')
+        current_voice_id = config_dict['tts'].get('voice_id')
+        current_model_id = config_dict['tts']['model_id']
+        current_optimize_streaming_latency = config_dict['tts'].get('optimize_streaming_latency', 3)
+        current_stability = config_dict['tts'].get('stability', 0.5)
+        current_similarity_boost = config_dict['tts'].get('similarity_boost', 0.8)
+        current_turn_timeout = config_dict['turn'].get('turn_timeout', 7)
+        current_max_duration_seconds = config_dict['conversation'].get('max_duration_seconds', 300)
+        current_tools = config_dict['agent']['prompt'].get('tools', [])
+        
+        # Apply updates and track changes
+        new_language = language if language is not None else current_language
+        if language is not None: updates.append(f"language: '{language}'")
+        
+        new_system_prompt = system_prompt if system_prompt is not None else current_system_prompt
+        if system_prompt is not None: updates.append(f"system_prompt updated")
+        
+        new_llm = llm if llm is not None else current_llm
+        if llm is not None: updates.append(f"llm: '{llm}'")
+        
+        new_first_message = first_message if first_message is not None else current_first_message
+        if first_message is not None: updates.append(f"first_message updated")
+        
+        new_temperature = temperature if temperature is not None else current_temperature
+        if temperature is not None: updates.append(f"temperature: {temperature}")
+        
+        new_max_tokens = max_tokens if max_tokens is not None else current_max_tokens
+        if max_tokens is not None: updates.append(f"max_tokens: {max_tokens}")
+        
+        new_asr_quality = asr_quality if asr_quality is not None else current_asr_quality
+        if asr_quality is not None: updates.append(f"asr_quality: '{asr_quality}'")
+        
+        new_voice_id = voice_id if voice_id is not None else current_voice_id
+        if voice_id is not None: updates.append(f"voice_id: '{voice_id}'")
+        
+        new_model_id = model_id if model_id is not None else current_model_id
+        if model_id is not None: updates.append(f"model_id: '{model_id}'")
+        
+        new_optimize_streaming_latency = optimize_streaming_latency if optimize_streaming_latency is not None else current_optimize_streaming_latency
+        if optimize_streaming_latency is not None: updates.append(f"optimize_streaming_latency: {optimize_streaming_latency}")
+        
+        new_stability = stability if stability is not None else current_stability
+        if stability is not None: updates.append(f"stability: {stability}")
+        
+        new_similarity_boost = similarity_boost if similarity_boost is not None else current_similarity_boost
+        if similarity_boost is not None: updates.append(f"similarity_boost: {similarity_boost}")
+        
+        new_turn_timeout = turn_timeout if turn_timeout is not None else current_turn_timeout
+        if turn_timeout is not None: updates.append(f"turn_timeout: {turn_timeout}")
+        
+        new_max_duration_seconds = max_duration_seconds if max_duration_seconds is not None else current_max_duration_seconds
+        if max_duration_seconds is not None: updates.append(f"max_duration_seconds: {max_duration_seconds}")
+        
+        # Create new conversation config with updated values
+        new_config = create_conversation_config(
+            language=new_language,
+            system_prompt=new_system_prompt,
+            llm=new_llm,
+            first_message=new_first_message,
+            temperature=new_temperature,
+            max_tokens=new_max_tokens,
+            asr_quality=new_asr_quality,
+            voice_id=new_voice_id,
+            model_id=new_model_id,
+            optimize_streaming_latency=new_optimize_streaming_latency,
+            stability=new_stability,
+            similarity_boost=new_similarity_boost,
+            turn_timeout=new_turn_timeout,
+            max_duration_seconds=new_max_duration_seconds,
+            tools=current_tools,  # Preserve existing tools
+        )
+        
+        # Update the conversation config
+        update_data["conversation_config"] = new_config
+        
+        # Apply the updates
+        client.conversational_ai.agents.update(agent_id=agent_id, **update_data)
+        
+        # Prepare response message
+        if not updates:
+            return TextContent(
+                type="text",
+                text=f"No changes specified for agent {agent_id}. No updates were made."
+            )
+        
+        updates_summary = ", ".join(updates)
+        return TextContent(
+            type="text",
+            text=f"Agent {agent_id} updated successfully. Changes made: {updates_summary}"
+        )
+        
+    except Exception as e:
+        make_error(f"Failed to update agent {agent_id}: {str(e)}")
 
 
 @mcp.tool(description="Update an existing conversational AI agent's configuration, including built-in tools")
