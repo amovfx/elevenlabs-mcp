@@ -14,6 +14,7 @@ def create_conversation_config(
     turn_timeout: int,
     max_duration_seconds: int,
     tools: list | None = None,
+    knowledge_base: list | None = None,
 ) -> dict:
     return {
         "agent": {
@@ -22,7 +23,7 @@ def create_conversation_config(
                 "prompt": system_prompt,
                 "llm": llm,
                 "tools": tools if tools is not None else [{"type": "system", "name": "end_call", "description": ""}],
-                "knowledge_base": [],
+                "knowledge_base": knowledge_base if knowledge_base is not None else [],
                 "temperature": temperature,
                 **({"max_tokens": max_tokens} if max_tokens else {}),
             },

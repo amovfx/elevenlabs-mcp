@@ -36,7 +36,6 @@ from elevenlabs_mcp.utils import (
     handle_large_text,
 )
 from elevenlabs_mcp.convai import create_conversation_config, create_platform_settings
-from elevenlabs.types.knowledge_base_locator import KnowledgeBaseLocator
 
 from elevenlabs import play
 from elevenlabs_mcp import __version__
@@ -584,16 +583,52 @@ def add_knowledge_base_to_agent(
             file=file,
         )
 
+    # Get the current agent configuration
     agent = client.conversational_ai.agents.get(agent_id=agent_id)
-    agent.conversation_config.agent.prompt.knowledge_base.append(
-        KnowledgeBaseLocator(
-            type="file" if is_file_based else "url",
-            name=knowledge_base_name,
-            id=response.id,
-        )
+    
+    # Extract the conversation config as a dict
+    current_config = agent.conversation_config
+    config_dict = current_config.model_dump() if hasattr(current_config, 'model_dump') else current_config.__dict__
+    
+    # Get the current knowledge base array or create it if it doesn't exist
+    if 'agent' not in config_dict:
+        config_dict['agent'] = {}
+    if 'prompt' not in config_dict['agent']:
+        config_dict['agent']['prompt'] = {}
+    if 'knowledge_base' not in config_dict['agent']['prompt']:
+        config_dict['agent']['prompt']['knowledge_base'] = []
+    
+    # Add the new knowledge base document
+    config_dict['agent']['prompt']['knowledge_base'].append({
+        'type': 'file' if is_file_based else 'url',
+        'name': knowledge_base_name,
+        'id': response.id
+    })
+    
+    # Create a new conversation config with the updated knowledge base
+    # We need to reconstruct the conversation config properly
+    new_config = create_conversation_config(
+        language=config_dict['agent'].get('language', 'en'),
+        system_prompt=config_dict['agent']['prompt'].get('prompt', ''),
+        llm=config_dict['agent']['prompt'].get('llm', 'gemini-2.0-flash-001'),
+        first_message=config_dict['agent'].get('first_message', ''),
+        temperature=config_dict['agent']['prompt'].get('temperature', 0.5),
+        max_tokens=config_dict['agent']['prompt'].get('max_tokens', -1),
+        asr_quality=config_dict.get('asr', {}).get('quality', 'high'),
+        voice_id=config_dict.get('tts', {}).get('voice_id'),
+        model_id=config_dict.get('tts', {}).get('model_id', 'eleven_turbo_v2'),
+        optimize_streaming_latency=config_dict.get('tts', {}).get('optimize_streaming_latency', 3),
+        stability=config_dict.get('tts', {}).get('stability', 0.5),
+        similarity_boost=config_dict.get('tts', {}).get('similarity_boost', 0.8),
+        turn_timeout=config_dict.get('turn', {}).get('turn_timeout', 7),
+        max_duration_seconds=config_dict.get('conversation', {}).get('max_duration_seconds', 300),
+        tools=config_dict['agent']['prompt'].get('tools', []),
+        knowledge_base=config_dict['agent']['prompt']['knowledge_base'],
     )
+    
+    # Update the agent
     client.conversational_ai.agents.update(
-        agent_id=agent_id, conversation_config=agent.conversation_config
+        agent_id=agent_id, conversation_config=new_config
     )
     return TextContent(
         type="text",
@@ -807,6 +842,7 @@ def update_agent(
         current_turn_timeout = config_dict['turn'].get('turn_timeout', 7)
         current_max_duration_seconds = config_dict['conversation'].get('max_duration_seconds', 300)
         current_tools = config_dict['agent']['prompt'].get('tools', [])
+        current_knowledge_base = config_dict['agent']['prompt'].get('knowledge_base', [])
         
         # Apply updates and track changes
         new_language = language if language is not None else current_language
@@ -868,6 +904,7 @@ def update_agent(
             turn_timeout=new_turn_timeout,
             max_duration_seconds=new_max_duration_seconds,
             tools=current_tools,  # Preserve existing tools
+            knowledge_base=current_knowledge_base,  # Preserve existing knowledge base
         )
         
         # Update the conversation config
@@ -979,6 +1016,7 @@ def update_agent_with_tools(
         turn_timeout=config_dict['turn'].get('turn_timeout', 7),
         max_duration_seconds=config_dict['conversation'].get('max_duration_seconds', 300),
         tools=tools,
+        knowledge_base=config_dict['agent']['prompt'].get('knowledge_base', []),
     )
     
     # Update the agent
